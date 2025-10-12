@@ -44,10 +44,10 @@ model User {
   phone         String    @unique
   email         String    @unique
   emailVerified Boolean   @default(false)
-  password      String?
-  imageUrl      String?
+  password      String
+  imageUrl      String @default("https://ylhpxhcgr4.ufs.sh/f/ZVlDsNdibGfFLkXm6f8jxEOgRvuoCGdTw7N05shB2kHlF1LU?expires=1760283258484&signature=hmac-sha256%3D08c077e17cbd2d36c67cd2b1b463fcf4dc5ebcc3d8498cc412f8b6294d86c2ef")
   role          UserRole  @default(USER)
-  isActive      Boolean   @default(false)
+  status        UserStatus @default(PENDING)
   accounts      Account[]
   sessions      Session[]
   isApproved    Boolean   @default(false)
@@ -67,7 +67,8 @@ model User {
 }
 
 enum UserRole {
-  SUPER_ADMIN   
+  SUPER_ADMIN  
+  MANAGER 
   ADMIN                 
   USER      
 }

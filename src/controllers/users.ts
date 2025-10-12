@@ -1,177 +1,216 @@
 
 
+
 // import { db } from "@/db/db";
 // import { Request, Response } from "express";
 // import bcrypt from "bcrypt";
-// import { generateAccessToken, generateRefreshToken, TokenPayload } from "@/utils/tokens";
+// import {
+//   generateAccessToken,
+//   generateRefreshToken,
+//   TokenPayload,
+// } from "@/utils/tokens";
 // import { AuthRequest } from "@/utils/auth";
+// import { UserRole } from "@prisma/client";
 
-// // ----------------------
-// // CREATE USER
-// // ----------------------
+// /* Helpers */
+// const isValidRole = (v: any): v is UserRole =>
+//   Object.values(UserRole).includes(v as UserRole);
+
+// const DEFAULT_AVATAR =
+//   "https://y2fxfl5cnq.ufs.sh/f/NMmMr48gm28W8uLodAOyiZJafIVQ6TpdgKRrwk39xvLPlh1b";
+
+// /* ======================
+//    CREATE USER
+// ====================== */
 // export async function createUser(req: Request, res: Response) {
-//   const { email, image, phone, password, firstName, lastName, role, status} = req.body;
+//   const {
+//     email,
+//     imageUrl,
+//     phone,
+//     password,
+//     firstName,
+//     lastName,
+//     role,
+//     isActive, // optional boolean
+//   } = req.body as {
+//     email: string;
+//     phone: string;
+//     password: string;
+//     firstName: string;
+//     lastName: string;
+//     imageUrl?: string;
+//     role?: UserRole | string;
+//     isActive?: boolean;
+//   };
 
 //   try {
-//     // Check if email or phone already exists
-//     const existingUser = await db.user.findFirst({
-//       where: {
-//         OR: [
-//           { email },
-//           { phone }
-//         ]
-//       }
-//     });
-//     if (existingUser) {
-//       return res.status(409).json({ data: null, error: "User with this email or phone already exists" });
+//     if (!email || !phone || !password || !firstName || !lastName) {
+//       return res.status(400).json({ data: null, error: "Missing required fields." });
 //     }
 
-//     // Hash password
-//     const hashedPassword = await bcrypt.hash(password, 10);
+//     const emailNorm = email.trim().toLowerCase();
+//     const phoneNorm = phone.trim();
+
+//     // Unique checks
+//     const existingUser = await db.user.findFirst({
+//       where: { OR: [{ email: emailNorm }, { phone: phoneNorm }] },
+//       select: { id: true },
+//     });
+//     if (existingUser) {
+//       return res
+//         .status(409)
+//         .json({ data: null, error: "User with this email or phone already exists" });
+//     }
+
+//     const roleValue: UserRole = isValidRole(role) ? (role as UserRole) : UserRole.USER;
+//     const hashedPassword = await bcrypt.hash(password, 12);
 
 //     const newUser = await db.user.create({
 //       data: {
-//         email,
-//         phone,
-//         image: image || "https://y2fxfl5cnq.ufs.sh/f/NMmMr48gm28W8uLodAOyiZJafIVQ6TpdgKRrwk39xvLPlh1b",
-//         password: hashedPassword,
+//         email: emailNorm,
+//         phone: phoneNorm,
 //         firstName,
 //         lastName,
-//         role,
-//         status: status || "ACTIVE",
-//       }
+//         name: `${firstName} ${lastName}`.trim(),
+//         imageUrl: imageUrl ?? DEFAULT_AVATAR,
+//         password: hashedPassword,
+//         role: roleValue,
+//         emailVerified: false,
+//         isApproved: false,
+//       },
 //     });
 
-//     const { password: _, ...userWithoutPassword } = newUser;
-
-//     return res.status(201).json({ data: userWithoutPassword, error: null });
-
+//     const { password: _pw, ...safe } = newUser;
+//     return res.status(201).json({ data: safe, error: null });
 //   } catch (error) {
 //     console.error("Error creating user:", error);
 //     return res.status(500).json({ data: null, error: "Something went wrong" });
 //   }
 // }
 
-// // ----------------------
-// // LOGIN USER
-// // ----------------------
-// // login user with email or phone
+// /* ======================
+//    LOGIN USER (email or phone)
+// ====================== */
 // export async function loginUser(req: Request, res: Response) {
-//   const { identifier, password } = req.body; // identifier can be email or phone
+//   const { identifier, password } = req.body as { identifier: string; password: string };
 
 //   try {
-//     // Find user by email or phone
+//     if (!identifier || !password) {
+//       return res.status(400).json({ data: null, error: "Missing credentials" });
+//     }
+
+//     const idNorm = identifier.trim().toLowerCase();
 //     const user = await db.user.findFirst({
 //       where: {
-//         OR: [
-//           { email: identifier },
-//           { phone: identifier }
-//         ]
-//       }
+//         OR: [{ email: idNorm }, { phone: identifier.trim() }],
+//       },
 //     });
 
 //     if (!user) {
 //       return res.status(401).json({ data: null, error: "Invalid credentials" });
 //     }
 
-//     // Check if account is active
-//     if (user.status !== "ACTIVE") {
+//     if (!user.isActive) {
 //       return res.status(403).json({ data: null, error: "User account is not active" });
 //     }
 
-//     // Verify password
-//     const isPasswordValid = await bcrypt.compare(password, user.password);
-//     if (!isPasswordValid) {
+//     if (!user.password) {
+//       return res
+//         .status(401)
+//         .json({ data: null, error: "This account has no password. Use social login or reset password." });
+//     }
+
+//     const ok = await bcrypt.compare(password, user.password);
+//     if (!ok) {
 //       return res.status(401).json({ data: null, error: "Invalid credentials" });
 //     }
 
-//     // Generate JWT tokens
 //     const payload: TokenPayload = {
 //       userId: user.id,
 //       phone: user.phone,
 //       email: user.email,
 //       role: user.role,
 //     };
-
 //     const accessToken = generateAccessToken(payload);
 //     const refreshToken = generateRefreshToken(payload);
 
-//     // Save refresh token in DB
 //     await db.refreshToken.create({
 //       data: {
 //         token: refreshToken,
 //         userId: user.id,
-//         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+//         expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
 //       },
 //     });
 
-//     // Exclude password before sending to frontend
-//     const { password: _, ...userWithoutPassword } = user;
-
+//     const { password: _pw, ...safe } = user;
 //     return res.status(200).json({
-//       data: { user: userWithoutPassword, accessToken, refreshToken },
+//       data: { user: safe, accessToken, refreshToken },
 //       error: null,
 //     });
-
 //   } catch (error) {
 //     console.error("Login error:", error);
 //     return res.status(500).json({ data: null, error: "An error occurred during login" });
 //   }
 // }
 
-
-// // ----------------------
-// // GET ALL USERS
-// // ----------------------
+// /* ======================
+//    GET ALL USERS
+// ====================== */
 // export async function getAllUsers(req: AuthRequest, res: Response) {
 //   try {
 //     const users = await db.user.findMany({
 //       orderBy: { createdAt: "desc" },
 //       include: {
+//         accounts: true,
+//         sessions: false,
 //         refreshTokens: false,
-//         watchEvents: true,
-//         downloadEvents: true,
-//       }
+//       },
 //     });
-//     return res.status(200).json({ data: users, error: null });
+//     const safe = users.map(({ password:any, ...u }) => u);
+//     return res.status(200).json({ data: safe, error: null });
 //   } catch (error) {
 //     console.error("Error fetching users:", error);
 //     return res.status(500).json({ data: null, error: "Failed to fetch users" });
 //   }
 // }
 
-// // ----------------------
-// // GET CURRENT USER
-// // ----------------------
+// /* ======================
+//    GET CURRENT USER
+// ====================== */
 // export async function getCurrentUser(req: AuthRequest, res: Response) {
 //   try {
+//     if (!req.user?.userId) {
+//       return res.status(401).json({ data: null, error: "Unauthorized" });
+//     }
+
 //     const user = await db.user.findUnique({
-//       where: { id: req.user?.userId },
+//       where: { id: req.user.userId },
 //       select: {
 //         id: true,
 //         firstName: true,
 //         lastName: true,
+//         name: true,
 //         email: true,
 //         phone: true,
-//         image: true,
+//         imageUrl: true,
 //         role: true,
-//         status: true,
-//       }
+//         isActive: true,
+//         createdAt: true,
+//         updatedAt: true,
+//       },
 //     });
 
 //     if (!user) return res.status(404).json({ data: null, error: "User not found" });
-
 //     return res.status(200).json({ data: user, error: null });
-
 //   } catch (error) {
 //     console.error("Error fetching current user:", error);
 //     return res.status(500).json({ data: null, error: "Server error" });
 //   }
 // }
 
-// // ----------------------
-// // DELETE USER
-// // ----------------------
+// /* ======================
+//    SOFT DELETE USER
+// ====================== */
 // export async function deleteUser(req: AuthRequest, res: Response) {
 //   const { id } = req.params;
 
@@ -179,24 +218,21 @@
 //     const existingUser = await db.user.findUnique({ where: { id } });
 //     if (!existingUser) return res.status(404).json({ data: null, error: "User not found" });
 
-//     // Soft delete: update status to DEACTIVATED
 //     await db.user.update({
 //       where: { id },
-//       data: { status: "DEACTIVATED" }
+//       data: { isActive: false },
 //     });
 
 //     return res.status(200).json({ data: null, message: "User deactivated successfully" });
-
 //   } catch (error) {
 //     console.error("Error deleting user:", error);
 //     return res.status(500).json({ data: null, error: "Failed to delete user" });
 //   }
 // }
 
-
-// // ----------------------
-// // GET USER BY ID
-// // ----------------------
+// /* ======================
+//    GET USER BY ID
+// ====================== */
 // export async function getUserById(req: AuthRequest, res: Response) {
 //   const { id } = req.params;
 
@@ -207,14 +243,15 @@
 //         id: true,
 //         firstName: true,
 //         lastName: true,
+//         name: true,
 //         email: true,
 //         phone: true,
-//         image: true,
+//         imageUrl: true,
 //         role: true,
-//         status: true,
+//         isActive: true,
 //         createdAt: true,
 //         updatedAt: true,
-//       }
+//       },
 //     });
 
 //     if (!user) {
@@ -222,20 +259,27 @@
 //     }
 
 //     return res.status(200).json({ data: user, error: null });
-
 //   } catch (error) {
 //     console.error("Error fetching user by id:", error);
 //     return res.status(500).json({ data: null, error: "Server error" });
 //   }
 // }
 
-
-// // ----------------------
-// // UPDATE/EDIT USER
-// // ----------------------
+// /* ======================
+//    UPDATE USER
+// ====================== */
 // export async function updateUser(req: AuthRequest, res: Response) {
 //   const { id } = req.params;
-//   const { firstName, lastName, email, phone, role, status, schoolId, password, image } = req.body;
+//   const { firstName, lastName, email, phone, role, isActive, password, imageUrl } = req.body as {
+//     firstName?: string;
+//     lastName?: string;
+//     email?: string;
+//     phone?: string;
+//     role?: UserRole | string;
+//     isActive?: boolean;
+//     password?: string;
+//     imageUrl?: string;
+//   };
 
 //   try {
 //     const existingUser = await db.user.findUnique({ where: { id } });
@@ -243,54 +287,60 @@
 //       return res.status(404).json({ data: null, error: "User not found" });
 //     }
 
-//     // Check if email or phone already exists for other users
+//     // Uniqueness checks for email/phone
 //     if (email || phone) {
+//       const emailNorm = email?.trim().toLowerCase();
+//       const phoneNorm = phone?.trim();
 //       const conflictUser = await db.user.findFirst({
 //         where: {
-//           OR: [
-//             { email: email || undefined },
-//             { phone: phone || undefined }
-//           ],
-//           NOT: { id } // exclude current user
-//         }
+//           OR: [{ email: emailNorm ?? undefined }, { phone: phoneNorm ?? undefined }],
+//           NOT: { id },
+//         },
+//         select: { id: true },
 //       });
-
 //       if (conflictUser) {
-//         return res.status(409).json({ data: null, error: "Email or phone already in use by another user" });
+//         return res
+//           .status(409)
+//           .json({ data: null, error: "Email or phone already in use by another user" });
 //       }
 //     }
 
-//     // Hash new password if provided
-//     const hashedPassword = password ? await bcrypt.hash(password, 10) : undefined;
+//     const roleValue =
+//       role !== undefined ? (isValidRole(role) ? (role as UserRole) : undefined) : undefined;
+//     const hashedPassword = password ? await bcrypt.hash(password, 12) : undefined;
+
+//     const nextFirst = firstName ?? existingUser.firstName;
+//     const nextLast = lastName ?? existingUser.lastName;
 
 //     const updatedUser = await db.user.update({
 //       where: { id },
 //       data: {
-//         firstName: firstName || existingUser.firstName,
-//         lastName: lastName || existingUser.lastName,
-//         email: email || existingUser.email,
-//         phone: phone || existingUser.phone,
-//         role: role || existingUser.role,
-//         status: status || existingUser.status,
-//         password: hashedPassword || existingUser.password,
-//         image: image || existingUser.image,
+//         firstName: nextFirst,
+//         lastName: nextLast,
+//         name: `${nextFirst} ${nextLast}`.trim(),
+//         email: email ? email.trim().toLowerCase() : existingUser.email,
+//         phone: phone ? phone.trim() : existingUser.phone,
+//         role: roleValue ?? existingUser.role,
+//         isActive: typeof isActive === "boolean" ? isActive : existingUser.isActive,
+//         password: hashedPassword ?? existingUser.password,
+//         imageUrl: imageUrl ?? existingUser.imageUrl ?? DEFAULT_AVATAR,
 //       },
 //       select: {
 //         id: true,
 //         firstName: true,
 //         lastName: true,
+//         name: true,
 //         email: true,
 //         phone: true,
 //         role: true,
-//         status: true,
-//         image: true,
+//         isActive: true,
+//         imageUrl: true,
 //         createdAt: true,
 //         updatedAt: true,
-//       }
+//       },
 //     });
 
 //     return res.status(200).json({ data: updatedUser, error: null });
-
 //   } catch (error) {
 //     console.error("Error updating user:", error);
 //     return res.status(500).json({ data: null, error: "Failed to update user" });
@@ -299,24 +349,27 @@
 
 
 
-
 import { db } from "@/db/db";
 import { Request, Response } from "express";
 import bcrypt from "bcrypt";
+import crypto from "crypto";
 import {
   generateAccessToken,
   generateRefreshToken,
   TokenPayload,
 } from "@/utils/tokens";
 import { AuthRequest } from "@/utils/auth";
-import { UserRole } from "@prisma/client";
+import { UserRole, UserStatus } from "@prisma/client";
 
 /* Helpers */
 const isValidRole = (v: any): v is UserRole =>
   Object.values(UserRole).includes(v as UserRole);
+const isValidStatus = (v: any): v is UserStatus =>
+  Object.values(UserStatus).includes(v as UserStatus);
 
-const DEFAULT_AVATAR =
-  "https://y2fxfl5cnq.ufs.sh/f/NMmMr48gm28W8uLodAOyiZJafIVQ6TpdgKRrwk39xvLPlh1b";
+// Secure 6-digit numeric code, zero-padded
+const makeSixDigitToken = () =>
+  String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
 
 /* ======================
    CREATE USER
@@ -324,13 +377,13 @@ const DEFAULT_AVATAR =
 export async function createUser(req: Request, res: Response) {
   const {
     email,
-    imageUrl,
+    imageUrl, // optional override (model has default)
     phone,
     password,
     firstName,
     lastName,
     role,
-    isActive, // optional boolean
+    status, // optional, defaults to PENDING
   } = req.body as {
     email: string;
     phone: string;
@@ -339,7 +392,7 @@ export async function createUser(req: Request, res: Response) {
     lastName: string;
     imageUrl?: string;
     role?: UserRole | string;
-    isActive?: boolean;
+    status?: UserStatus | string;
   };
 
   try {
@@ -362,7 +415,10 @@ export async function createUser(req: Request, res: Response) {
     }
 
     const roleValue: UserRole = isValidRole(role) ? (role as UserRole) : UserRole.USER;
+    const statusValue: UserStatus = isValidStatus(status) ? (status as UserStatus) : UserStatus.PENDING;
+
     const hashedPassword = await bcrypt.hash(password, 12);
+    const token = makeSixDigitToken(); // <-- generate and store
 
     const newUser = await db.user.create({
       data: {
@@ -371,17 +427,31 @@ export async function createUser(req: Request, res: Response) {
         firstName,
         lastName,
         name: `${firstName} ${lastName}`.trim(),
-        imageUrl: imageUrl ?? DEFAULT_AVATAR,
+        imageUrl, // let Prisma use default if undefined
         password: hashedPassword,
         role: roleValue,
-        isActive: isActive ?? false, // default off until you activate/verify
+        status: statusValue,
         emailVerified: false,
         isApproved: false,
+        token, // <-- save 6-digit token
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        name: true,
+        email: true,
+        phone: true,
+        imageUrl: true,
+        role: true,
+        status: true,
+        token: true, // you may omit sending this to client if sensitive
+        createdAt: true,
+        updatedAt: true,
       },
     });
 
-    const { password: _pw, ...safe } = newUser;
-    return res.status(201).json({ data: safe, error: null });
+    return res.status(201).json({ data: newUser, error: null });
   } catch (error) {
     console.error("Error creating user:", error);
     return res.status(500).json({ data: null, error: "Something went wrong" });
@@ -410,7 +480,7 @@ export async function loginUser(req: Request, res: Response) {
       return res.status(401).json({ data: null, error: "Invalid credentials" });
     }
 
-    if (!user.isActive) {
+    if (user.status !== "ACTIVE") {
       return res.status(403).json({ data: null, error: "User account is not active" });
     }
 
@@ -466,7 +536,7 @@ export async function getAllUsers(req: AuthRequest, res: Response) {
         refreshTokens: false,
       },
     });
-    const safe = users.map(({ password:any, ...u }) => u);
+    const safe = users.map(({ password, ...u }) => u);
     return res.status(200).json({ data: safe, error: null });
   } catch (error) {
     console.error("Error fetching users:", error);
@@ -494,7 +564,7 @@ export async function getCurrentUser(req: AuthRequest, res: Response) {
         phone: true,
         imageUrl: true,
         role: true,
-        isActive: true,
+        status: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -509,7 +579,7 @@ export async function getCurrentUser(req: AuthRequest, res: Response) {
 }
 
 /* ======================
-   SOFT DELETE USER
+   SOFT DELETE USER (status -> DEACTIVATED)
 ====================== */
 export async function deleteUser(req: AuthRequest, res: Response) {
   const { id } = req.params;
@@ -520,7 +590,7 @@ export async function deleteUser(req: AuthRequest, res: Response) {
 
     await db.user.update({
       where: { id },
-      data: { isActive: false },
+      data: { status: UserStatus.DEACTIVATED },
     });
 
     return res.status(200).json({ data: null, message: "User deactivated successfully" });
@@ -548,7 +618,8 @@ export async function getUserById(req: AuthRequest, res: Response) {
         phone: true,
         imageUrl: true,
         role: true,
-        isActive: true,
+        status: true,
+        token: true, // include if you want to debug; omit in production responses
         createdAt: true,
         updatedAt: true,
       },
@@ -570,13 +641,22 @@ export async function getUserById(req: AuthRequest, res: Response) {
 ====================== */
 export async function updateUser(req: AuthRequest, res: Response) {
   const { id } = req.params;
-  const { firstName, lastName, email, phone, role, isActive, password, imageUrl } = req.body as {
+  const {
+    firstName,
+    lastName,
+    email,
+    phone,
+    role,
+    status,
+    password,
+    imageUrl,
+  } = req.body as {
     firstName?: string;
     lastName?: string;
     email?: string;
     phone?: string;
     role?: UserRole | string;
-    isActive?: boolean;
+    status?: UserStatus | string;
     password?: string;
     imageUrl?: string;
   };
@@ -607,6 +687,9 @@ export async function updateUser(req: AuthRequest, res: Response) {
 
     const roleValue =
       role !== undefined ? (isValidRole(role) ? (role as UserRole) : undefined) : undefined;
+    const statusValue =
+      status !== undefined ? (isValidStatus(status) ? (status as UserStatus) : undefined) : undefined;
+
     const hashedPassword = password ? await bcrypt.hash(password, 12) : undefined;
 
     const nextFirst = firstName ?? existingUser.firstName;
@@ -621,9 +704,9 @@ export async function updateUser(req: AuthRequest, res: Response) {
         email: email ? email.trim().toLowerCase() : existingUser.email,
         phone: phone ? phone.trim() : existingUser.phone,
         role: roleValue ?? existingUser.role,
-        isActive: typeof isActive === "boolean" ? isActive : existingUser.isActive,
+        status: statusValue ?? existingUser.status,
         password: hashedPassword ?? existingUser.password,
-        imageUrl: imageUrl ?? existingUser.imageUrl ?? DEFAULT_AVATAR,
+        imageUrl: imageUrl ?? existingUser.imageUrl,
       },
       select: {
         id: true,
@@ -633,7 +716,7 @@ export async function updateUser(req: AuthRequest, res: Response) {
         email: true,
         phone: true,
         role: true,
-        isActive: true,
+        status: true,
         imageUrl: true,
         createdAt: true,
         updatedAt: true,
