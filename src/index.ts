@@ -28,6 +28,7 @@ dotenv.config();
 import express from "express";
 import cors from "cors";
 import userRouter from "./routes/users";
+import authRouter from "./routes/auth";
 
 const app = express();
 
@@ -52,6 +53,8 @@ app.use(express.json());
 
 // Routes
 app.use("/api/v1", userRouter);
+app.use("/api/v1", authRouter);          // ⬅️ add this (keeps your /auth/... paths)
+
 
 // Server
 const PORT = process.env.PORT || 8000;

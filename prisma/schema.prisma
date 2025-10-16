@@ -3,6 +3,8 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// re_BpM46JvH_CaR1rdHpqLoXa2qMQkt2NmgG
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
@@ -45,11 +47,12 @@ model User {
   email         String    @unique
   emailVerified Boolean   @default(false)
   password      String
-  imageUrl      String @default("https://ylhpxhcgr4.ufs.sh/f/ZVlDsNdibGfFLkXm6f8jxEOgRvuoCGdTw7N05shB2kHlF1LU?expires=1760283258484&signature=hmac-sha256%3D08c077e17cbd2d36c67cd2b1b463fcf4dc5ebcc3d8498cc412f8b6294d86c2ef")
+  imageUrl      String @default("https://ylhpxhcgr4.ufs.sh/f/ZVlDsNdibGfFLkXm6f8jxEOgRvuoCGdTw7N05shB2kHlF1LU?expires=1760298626027&signature=hmac-sha256%3De5e64a05048cc6fd92c9ca7aabf68cf8a9992143d9f2bce18cfd5e7e30d6e5d4")
   role          UserRole  @default(USER)
   status        UserStatus @default(PENDING)
   accounts      Account[]
   sessions      Session[]
+  resetTokens   PasswordResetToken[]
   isApproved    Boolean   @default(false)
   token         String?
   createdAt     DateTime  @default(now())
@@ -93,6 +96,17 @@ model RefreshToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+model PasswordResetToken {
+  id         String   @id @default(cuid())
+  userId     String
+  tokenHash  String   // store only the hash of the raw token
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+  @@index([expiresAt])
+}
 
 
 model EntityOnboarding {
