@@ -1,27 +1,4 @@
 
-// import dotenv from "dotenv";
-// dotenv.config();
-
-// import express from "express";
-// import cors from "cors";
-// import userRouter from "./routes/users";
-
-// const app = express();
-
-// // Middleware
-// app.use(cors());
-// app.use(express.json());
-
-// // Routes
-// app.use("/api/v1", userRouter);
-
-// // Server
-// const PORT = process.env.PORT || 8000;
-// app.listen(PORT, () => {
-//   console.log(`🚀 Server is running on http://localhost:${PORT}`);
-// });
-// export default app;
-
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -53,7 +30,7 @@ app.use(express.json());
 
 // Routes
 app.use("/api/v1", userRouter);
-app.use("/api/v1", authRouter);          // ⬅️ add this (keeps your /auth/... paths)
+app.use("/api/v1", authRouter);
 
 
 // Server

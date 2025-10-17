@@ -360,6 +360,7 @@ import {
 } from "@/utils/tokens";
 import { AuthRequest } from "@/utils/auth";
 import { UserRole, UserStatus } from "@prisma/client";
+import { sendVerificationCodeResend } from "@/lib/mailer";
 
 /* Helpers */
 const isValidRole = (v: any): v is UserRole =>
@@ -450,6 +451,12 @@ export async function createUser(req: Request, res: Response) {
         updatedAt: true,
       },
     });
+
+    await sendVerificationCodeResend({
+  to: newUser.email,
+  name: newUser.firstName ?? newUser.name ?? "there",
+  code: token, // your 6-digit token saved on user
+});
 
     return res.status(201).json({ data: newUser, error: null });
   } catch (error) {

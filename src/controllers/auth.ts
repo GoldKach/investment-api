@@ -4,6 +4,8 @@ import crypto from "crypto";
 import { db } from "@/db/db";           // Prisma
 import bcrypt from "bcrypt";
 import { sendResetEmailResend } from "@/utils/mailer";
+import { sendVerificationCodeResend } from "@/lib/mailer";
+import { UserStatus } from "@prisma/client";
 
 const RESET_TTL_MIN = 30;
 
@@ -84,4 +86,49 @@ export async function resetPassword(req: Request, res: Response) {
     console.error("resetPassword error:", e);
     return res.status(500).json({ error: "Server error" });
   }
+}
+
+export async function verifyEmail(req: Request, res: Response) {
+  const { email, token } = req.body as { email: string; token: string };
+  if (!email || !token) return res.status(400).json({ error: "Missing fields." });
+
+  const user = await db.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+  if (!user || !user.token || user.token !== token) {
+    return res.status(400).json({ error: "Invalid verification code." });
+  }
+
+  await db.user.update({
+    where: { id: user.id },
+    data: {
+      emailVerified: true,
+      status: UserStatus.ACTIVE, 
+      token: null,               
+    },
+  });
+
+  return res.status(200).json({ ok: true, message: "Email verified." });
+}
+
+// POST /auth/resend-verification
+export async function resendVerification(req: Request, res: Response) {
+  const { email } = req.body as { email: string };
+  if (!email) return res.status(400).json({ error: "Email is required." });
+
+  const user = await db.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+  if (!user) return res.status(200).json({ ok: true }); // don't leak
+
+  const newCode = String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
+
+  await db.user.update({
+    where: { id: user.id },
+    data: { token: newCode },
+  });
+
+  await sendVerificationCodeResend({
+    to: user.email,
+    name: user.firstName ?? user.name ?? "there",
+    code: newCode,
+  });
+
+  return res.status(200).json({ ok: true });
 }
