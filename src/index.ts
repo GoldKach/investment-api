@@ -6,6 +6,9 @@ import express from "express";
 import cors from "cors";
 import userRouter from "./routes/users";
 import authRouter from "./routes/auth";
+import onboardingRouter from "./routes/onboarding";
+import assetsRouter from "./routes/assets";
+import portfolioRouter from "./routes/portfolio";
 
 const app = express();
 
@@ -31,6 +34,10 @@ app.use(express.json());
 // Routes
 app.use("/api/v1", userRouter);
 app.use("/api/v1", authRouter);
+app.use("/api/v1", onboardingRouter);
+app.use("/api/v1", assetsRouter);
+app.use("/api/v1", portfolioRouter);
+
 
 
 // Server

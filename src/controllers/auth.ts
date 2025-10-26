@@ -3,9 +3,12 @@ import { Request, Response } from "express";
 import crypto from "crypto";
 import { db } from "@/db/db";           // Prisma
 import bcrypt from "bcrypt";
+// import  {jwt} from "jsonwebtoken";
 import { sendResetEmailResend } from "@/utils/mailer";
 import { sendVerificationCodeResend } from "@/lib/mailer";
 import { UserStatus } from "@prisma/client";
+import jwt from "jsonwebtoken";
+
 
 const RESET_TTL_MIN = 30;
 
@@ -88,26 +91,26 @@ export async function resetPassword(req: Request, res: Response) {
   }
 }
 
-export async function verifyEmail(req: Request, res: Response) {
-  const { email, token } = req.body as { email: string; token: string };
-  if (!email || !token) return res.status(400).json({ error: "Missing fields." });
+// export async function verifyEmail(req: Request, res: Response) {
+//   const { email, token } = req.body as { email: string; token: string };
+//   if (!email || !token) return res.status(400).json({ error: "Missing fields." });
 
-  const user = await db.user.findUnique({ where: { email: email.trim().toLowerCase() } });
-  if (!user || !user.token || user.token !== token) {
-    return res.status(400).json({ error: "Invalid verification code." });
-  }
+//   const user = await db.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+//   if (!user || !user.token || user.token !== token) {
+//     return res.status(400).json({ error: "Invalid verification code." });
+//   }
 
-  await db.user.update({
-    where: { id: user.id },
-    data: {
-      emailVerified: true,
-      status: UserStatus.ACTIVE, 
-      token: null,               
-    },
-  });
+//   await db.user.update({
+//     where: { id: user.id },
+//     data: {
+//       emailVerified: true,
+//       status: UserStatus.ACTIVE, 
+//       token: null,               
+//     },
+//   });
 
-  return res.status(200).json({ ok: true, message: "Email verified." });
-}
+//   return res.status(200).json({ ok: true, message: "Email verified." });
+// }
 
 // POST /auth/resend-verification
 export async function resendVerification(req: Request, res: Response) {
@@ -131,4 +134,98 @@ export async function resendVerification(req: Request, res: Response) {
   });
 
   return res.status(200).json({ ok: true });
+}
+
+
+// const ACCESS_TTL = "15m";
+// const REFRESH_DAYS = 30;
+
+// export async function verifyEmail(req: Request, res: Response) {
+//   const { email, token } = req.body as { email: string; token: string };
+//   if (!email || !token) return res.status(400).json({ error: "Missing fields." });
+
+//   const user = await db.user.findUnique({
+//     where: { email: email.trim().toLowerCase() },
+//   });
+
+//   if (!user || !user.token || user.token !== token) {
+//     return res.status(400).json({ error: "Invalid verification code." });
+//   }
+
+//   // Persist state and revoke old refresh tokens (optional but recommended)
+//   await db.$transaction([
+//     db.user.update({
+//       where: { id: user.id },
+//       data: { emailVerified: true, status: UserStatus.ACTIVE, token: null },
+//     }),
+//     db.refreshToken.deleteMany({ where: { userId: user.id } }),
+//   ]);
+
+//   // Mint new tokens (same logic you use in /login)
+//   const accessToken = jwt.sign(
+//     { sub: user.id, role: user.role },
+//     process.env.JWT_SECRET!,
+//     { expiresIn: ACCESS_TTL }
+//   );
+
+//   const REFRESH_TTL_MS = 1000 * 60 * 60 * 24 * 30;
+
+
+//   const refreshTokenValue = crypto.randomUUID();
+//   await db.refreshToken.create({
+//     data: {
+//       userId: user.id,
+//       token: refreshTokenValue,
+//       // set an expiry if your model has it; otherwise store createdAt and enforce TTL in code
+//       expiresAt: new Date(Date.now() + REFRESH_TTL_MS),
+
+//     },
+//   });
+
+//   const safeUser = {
+//     id: user.id,
+//     email: user.email,
+//     role: user.role,
+//     firstName: user.firstName,
+//     lastName: user.lastName,
+//     imageUrl: user.imageUrl,
+//     status: UserStatus.ACTIVE,
+//   };
+
+//   return res.status(200).json({
+//     ok: true,
+//     message: "Email verified.",
+//     data: {
+//       user: safeUser,
+//       accessToken,
+//       refreshToken: refreshTokenValue,
+//     },
+//   });
+// }
+
+
+export async function verifyEmail(req: Request, res: Response) {
+  const { email, token } = req.body as { email: string; token: string };
+  if (!email || !token) return res.status(400).json({ error: "Missing fields." });
+
+  const user = await db.user.findUnique({
+    where: { email: email.trim().toLowerCase() },
+  });
+
+  if (!user || !user.token || user.token !== token) {
+    return res.status(400).json({ error: "Invalid verification code." });
+  }
+
+  // Mark verified; clear the one-time code
+  await db.user.update({
+    where: { id: user.id },
+    data: { emailVerified: true, status: UserStatus.ACTIVE, token: null },
+  });
+
+  // No auth cookies/tokens here!
+  return res.status(200).json({
+    ok: true,
+    userId: user.id,
+    email: user.email,
+  });
 }
