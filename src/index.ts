@@ -9,6 +9,7 @@ import authRouter from "./routes/auth";
 import onboardingRouter from "./routes/onboarding";
 import assetsRouter from "./routes/assets";
 import portfolioRouter from "./routes/portfolio";
+import portfolioAssetRouter from "./routes/portfolio-assets";
 
 const app = express();
 
@@ -37,6 +38,7 @@ app.use("/api/v1", authRouter);
 app.use("/api/v1", onboardingRouter);
 app.use("/api/v1", assetsRouter);
 app.use("/api/v1", portfolioRouter);
+app.use("/api/v1", portfolioAssetRouter);
 
 
 
