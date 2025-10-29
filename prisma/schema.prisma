@@ -211,7 +211,6 @@ model UserPortfolio {
   userAssets      UserPortfolioAsset[]
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
-
   @@unique([userId, portfolioId])
 }
 
@@ -227,7 +226,6 @@ model Portfolio {
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
 }
-
 
 model PortfolioAsset {
   id          String     @id @default(cuid())

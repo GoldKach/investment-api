@@ -39,9 +39,9 @@ const loginLimiter = rateLimit({
 userRouter.post("/register", createUser);
 userRouter.post("/login", loginLimiter, loginUser); // ✅ limiter applied here
 userRouter.get("/users", getAllUsers);
-userRouter.get("/users/:id", deleteUser);
+userRouter.delete("/users/:id", deleteUser);
 userRouter.get("/me", authenticateToken, getCurrentUser);
-userRouter.get("/users/:id", authenticateToken, getUserById); // ✅ fetch by ID
-userRouter.put("/users/:id", authenticateToken, updateUser); // ✅ update user
+userRouter.get("/users/:id", getUserById); // ✅ fetch by ID
+userRouter.put("/users/:id", updateUser); // ✅ update user
 
 export default userRouter;

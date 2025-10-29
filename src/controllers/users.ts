@@ -447,7 +447,7 @@ export async function deleteUser(req: AuthRequest, res: Response) {
 /* ======================
    GET USER BY ID
 ====================== */
-export async function getUserById(req: AuthRequest, res: Response) {
+export async function getUserById(req: Request, res: Response) {
   const { id } = req.params;
 
   try {
@@ -460,10 +460,17 @@ export async function getUserById(req: AuthRequest, res: Response) {
         name: true,
         email: true,
         phone: true,
+         emailVerified: true, // ⬅️ add
+        status: true,      // ⬅️ add
+        isApproved: true,  
         imageUrl: true,
         role: true,
-        status: true,
-        token: true, // include if you want to debug; omit in production responses
+        entityOnboarding: true,
+          wallet: true,
+          withdrawals: true,
+          userPortfolios: true,
+          deposits: true,
+        // token: true, // ❌ remove this from production responses
         createdAt: true,
         updatedAt: true,
       },
@@ -483,7 +490,190 @@ export async function getUserById(req: AuthRequest, res: Response) {
 /* ======================
    UPDATE USER
 ====================== */
-export async function updateUser(req: AuthRequest, res: Response) {
+// export async function updateUser(req: AuthRequest, res: Response) {
+//   const { id } = req.params;
+//   const {
+//     firstName,
+//     lastName,
+//     email,
+//     phone,
+//     role,
+//     status,
+//     password,
+//     imageUrl,
+//   } = req.body as {
+//     firstName?: string;
+//     lastName?: string;
+//     email?: string;
+//     phone?: string;
+//     role?: UserRole | string;
+//     status?: UserStatus | string;
+//     password?: string;
+//     imageUrl?: string;
+//   };
+
+//   try {
+//     const existingUser = await db.user.findUnique({ where: { id } });
+//     if (!existingUser) {
+//       return res.status(404).json({ data: null, error: "User not found" });
+//     }
+
+//     // Uniqueness checks for email/phone
+//     if (email || phone) {
+//       const emailNorm = email?.trim().toLowerCase();
+//       const phoneNorm = phone?.trim();
+//       const conflictUser = await db.user.findFirst({
+//         where: {
+//           OR: [{ email: emailNorm ?? undefined }, { phone: phoneNorm ?? undefined }],
+//           NOT: { id },
+//         },
+//         select: { id: true },
+//       });
+//       if (conflictUser) {
+//         return res
+//           .status(409)
+//           .json({ data: null, error: "Email or phone already in use by another user" });
+//       }
+//     }
+
+//     const roleValue =
+//       role !== undefined ? (isValidRole(role) ? (role as UserRole) : undefined) : undefined;
+//     const statusValue =
+//       status !== undefined ? (isValidStatus(status) ? (status as UserStatus) : undefined) : undefined;
+
+//     const hashedPassword = password ? await bcrypt.hash(password, 12) : undefined;
+
+//     const nextFirst = firstName ?? existingUser.firstName;
+//     const nextLast = lastName ?? existingUser.lastName;
+
+//     const updatedUser = await db.user.update({
+//       where: { id },
+//       data: {
+//         firstName: nextFirst,
+//         lastName: nextLast,
+//         name: `${nextFirst} ${nextLast}`.trim(),
+//         email: email ? email.trim().toLowerCase() : existingUser.email,
+//         phone: phone ? phone.trim() : existingUser.phone,
+//         role: roleValue ?? existingUser.role,
+//         status: statusValue ?? existingUser.status,
+//         password: hashedPassword ?? existingUser.password,
+//         imageUrl: imageUrl ?? existingUser.imageUrl,
+//       },
+//       select: {
+//         id: true,
+//         firstName: true,
+//         lastName: true,
+//         name: true,
+//         email: true,
+//         phone: true,
+//         role: true,
+//         status: true,
+//         imageUrl: true,
+//         createdAt: true,
+//         updatedAt: true,
+//       },
+//     });
+
+//     return res.status(200).json({ data: updatedUser, error: null });
+//   } catch (error) {
+//     console.error("Error updating user:", error);
+//     return res.status(500).json({ data: null, error: "Failed to update user" });
+//   }
+// }
+
+// export async function updateUser(req: Request, res: Response) {
+//   const { id } = req.params;
+//   const {
+//     firstName,
+//     lastName,
+//     email,
+//     phone,
+//     role,
+//     status,
+//     password,
+//     imageUrl,
+//   } = req.body as {
+//     firstName?: string;
+//     lastName?: string;
+//     email?: string;
+//     phone?: string;
+//     role?: UserRole | string;
+//     status?: UserStatus | string;
+//     password?: string;
+//     imageUrl?: string;
+//   };
+
+//   try {
+//     const existingUser = await db.user.findUnique({ where: { id } });
+//     if (!existingUser) {
+//       return res.status(404).json({ data: null, error: "User not found" });
+//     }
+
+//     // Uniqueness checks for email/phone
+//     if (email || phone) {
+//       const emailNorm = email?.trim().toLowerCase();
+//       const phoneNorm = phone?.trim();
+//       const conflictUser = await db.user.findFirst({
+//         where: {
+//           OR: [{ email: emailNorm ?? undefined }, { phone: phoneNorm ?? undefined }],
+//           NOT: { id },
+//         },
+//         select: { id: true },
+//       });
+//       if (conflictUser) {
+//         return res
+//           .status(409)
+//           .json({ data: null, error: "Email or phone already in use by another user" });
+//       }
+//     }
+
+//     const roleValue =
+//       role !== undefined ? (isValidRole(role) ? (role as UserRole) : undefined) : undefined;
+//     const statusValue =
+//       status !== undefined ? (isValidStatus(status) ? (status as UserStatus) : undefined) : undefined;
+
+//     const hashedPassword = password ? await bcrypt.hash(password, 12) : undefined;
+
+//     const nextFirst = firstName ?? existingUser.firstName;
+//     const nextLast = lastName ?? existingUser.lastName;
+
+//     const updatedUser = await db.user.update({
+//       where: { id },
+//       data: {
+//         firstName: nextFirst,
+//         lastName: nextLast,
+//         name: `${nextFirst} ${nextLast}`.trim(),
+//         email: email ? email.trim().toLowerCase() : existingUser.email,
+//         phone: phone ? phone.trim() : existingUser.phone,
+//         role: roleValue ?? existingUser.role,
+//         status: statusValue ?? existingUser.status,
+//         password: hashedPassword ?? existingUser.password,
+//         imageUrl: imageUrl ?? existingUser.imageUrl,
+//       },
+//       select: {
+//         id: true,
+//         firstName: true,
+//         lastName: true,
+//         name: true,
+//         email: true,
+//         phone: true,
+//         role: true,
+//         status: true,
+//         imageUrl: true,
+//         createdAt: true,
+//         updatedAt: true,
+//       },
+//     });
+
+//     return res.status(200).json({ data: updatedUser, error: null });
+//   } catch (error) {
+//     console.error("Error updating user:", error);
+//     return res.status(500).json({ data: null, error: "Failed to update user" });
+//   }
+// }
+
+
+export async function updateUser(req: Request, res: Response) {
   const { id } = req.params;
   const {
     firstName,
@@ -494,6 +684,10 @@ export async function updateUser(req: AuthRequest, res: Response) {
     status,
     password,
     imageUrl,
+    // ⬇️ add these
+    emailVerified,
+    isActive,
+    isApproved,
   } = req.body as {
     firstName?: string;
     lastName?: string;
@@ -503,37 +697,33 @@ export async function updateUser(req: AuthRequest, res: Response) {
     status?: UserStatus | string;
     password?: string;
     imageUrl?: string;
+    emailVerified?: boolean;
+    isActive?: boolean;
+    isApproved?: boolean;
   };
 
   try {
     const existingUser = await db.user.findUnique({ where: { id } });
-    if (!existingUser) {
-      return res.status(404).json({ data: null, error: "User not found" });
-    }
+    if (!existingUser) return res.status(404).json({ data: null, error: "User not found" });
 
-    // Uniqueness checks for email/phone
+    // unique checks
     if (email || phone) {
       const emailNorm = email?.trim().toLowerCase();
       const phoneNorm = phone?.trim();
-      const conflictUser = await db.user.findFirst({
+      const conflict = await db.user.findFirst({
         where: {
           OR: [{ email: emailNorm ?? undefined }, { phone: phoneNorm ?? undefined }],
           NOT: { id },
         },
         select: { id: true },
       });
-      if (conflictUser) {
-        return res
-          .status(409)
-          .json({ data: null, error: "Email or phone already in use by another user" });
+      if (conflict) {
+        return res.status(409).json({ data: null, error: "Email or phone already in use by another user" });
       }
     }
 
-    const roleValue =
-      role !== undefined ? (isValidRole(role) ? (role as UserRole) : undefined) : undefined;
-    const statusValue =
-      status !== undefined ? (isValidStatus(status) ? (status as UserStatus) : undefined) : undefined;
-
+    const roleValue = role !== undefined ? (isValidRole(role) ? (role as UserRole) : undefined) : undefined;
+    const statusValue = status !== undefined ? (isValidStatus(status) ? (status as UserStatus) : undefined) : undefined;
     const hashedPassword = password ? await bcrypt.hash(password, 12) : undefined;
 
     const nextFirst = firstName ?? existingUser.firstName;
@@ -551,6 +741,8 @@ export async function updateUser(req: AuthRequest, res: Response) {
         status: statusValue ?? existingUser.status,
         password: hashedPassword ?? existingUser.password,
         imageUrl: imageUrl ?? existingUser.imageUrl,
+        // ⬇️ persist toggles
+        emailVerified: emailVerified ?? existingUser.emailVerified,        isApproved: isApproved ?? existingUser.isApproved,
       },
       select: {
         id: true,
@@ -562,6 +754,8 @@ export async function updateUser(req: AuthRequest, res: Response) {
         role: true,
         status: true,
         imageUrl: true,
+        emailVerified: true,
+        isApproved: true,
         createdAt: true,
         updatedAt: true,
       },
