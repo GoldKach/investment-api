@@ -322,7 +322,6 @@ model ActivityLog {
   @@index([userId, action, createdAt])
 }
 
-
 enum AccountStatus {
   ACTIVE
   INACTIVE
